@@ -23,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.straightpool.data.PlayersRepoV2
 import com.example.straightpool.data.RosterPlayer
@@ -31,26 +30,28 @@ import com.example.straightpool.data.loadLeagueMatchesFromAssets
 import com.example.straightpool.standings.calculateStandings
 
 @Composable
-fun StandingsScreenV2(onBack: () -> Unit) {
+fun StandingsScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
 
     val repo = remember { PlayersRepoV2(ctx) }
-    var roster by remember { mutableStateOf<List<RosterPlayer>>(emptyList()) }
+    var players by remember { mutableStateOf<List<RosterPlayer>>(emptyList()) }
 
     val matches = remember { loadLeagueMatchesFromAssets(ctx) }
 
     LaunchedEffect(Unit) {
-        roster = repo.readAll()
-            .filter { !it.isBye }
+        players = repo.readAll()
+            .filter { !it.isBye } // optional
             .map { pr -> RosterPlayer(playerId = pr.roster, name = pr.name) }
     }
 
-    val rows = remember(roster, matches) { calculateStandings(roster, matches) }
+    val rows = remember(players, matches) {
+        calculateStandings(players, matches)
+    }
 
     Surface {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Standings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Standings", style = MaterialTheme.typography.headlineSmall)
                 OutlinedButton(onClick = onBack) { Text("Back") }
             }
 
@@ -59,12 +60,14 @@ fun StandingsScreenV2(onBack: () -> Unit) {
             Text("Counted matches: ${matches.count { it.isPlayed && it.countsForStandings }}")
             Spacer(Modifier.height(12.dp))
 
-            if (roster.isEmpty()) {
+            if (players.isEmpty()) {
                 Text("No players yet. Import players.csv in Admin > Players > Import.")
-                return@Surface
+                Spacer(Modifier.height(12.dp))
             }
 
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            ) {
                 rows.forEach { r ->
                     ElevatedCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                         Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -79,4 +82,3 @@ fun StandingsScreenV2(onBack: () -> Unit) {
         }
     }
 }
-

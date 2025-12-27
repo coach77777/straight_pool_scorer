@@ -10,6 +10,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.straightpool.R
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun StartScreen(
@@ -27,12 +28,17 @@ fun StartScreen(
             Image(
                 painter = painterResource(R.drawable.rs_logo),
                 contentDescription = "Red Shoes Billiards",
-                modifier = Modifier.width(180.dp).padding(bottom = 16.dp),
+                modifier = Modifier
+                    .width(180.dp)
+                    .padding(12.dp),
                 contentScale = ContentScale.Fit
             )
-
-            Text("Straight Pool 14.1", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(24.dp))
+            Text(
+                "Straight Pool 14.1",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
 
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text("Start") }
             Spacer(Modifier.height(12.dp))

@@ -1,144 +1,156 @@
 package com.example.straightpool.ui.contacts
 
 import android.content.Intent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
-import com.example.straightpool.data.RosterPlayer
-import com.example.straightpool.data.loadRosterFromAssets
-
+import com.example.straightpool.data.PlayerRow
+import com.example.straightpool.data.PlayersRepoV2
 
 @Composable
 fun ContactsScreen() {
-    val context = LocalContext.current
+    val ctx = LocalContext.current
+    val repo = remember { PlayersRepoV2(ctx) }
 
-    var roster by remember { mutableStateOf<List<RosterPlayer>>(emptyList()) }
-    var loadError by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var players by remember { mutableStateOf(emptyList<PlayerRow>()) }
+
+    fun refresh() {
+        players = repo.readAll()
+    }
 
     LaunchedEffect(Unit) {
-        runCatching { loadRosterFromAssets(context) }
-            .onSuccess { roster = it }
-            .onFailure { loadError = it.message ?: "Unknown error" }
+        refresh()
     }
 
-    var selectedIndex by remember(roster) {
-        mutableStateOf(roster.indexOfFirst { !it.name.equals("BYE", true) }.let { if (it >= 0) it else 0 })
+    val q = query.trim().lowercase()
+    val filtered = players.filter { p ->
+        if (q.isEmpty()) true
+        else p.name.lowercase().contains(q) || p.roster.toString().contains(q)
     }
-    val selected = roster.getOrNull(selectedIndex)
 
-    var showPicker by remember { mutableStateOf(false) }
+    fun dial(phone: String) {
+        ctx.startActivity(Intent(Intent.ACTION_DIAL).apply {
+            data = Uri.parse("tel:$phone")
+        })
+    }
+
+    fun sms(phone: String) {
+        ctx.startActivity(Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:$phone")
+        })
+    }
+
+    fun email(addr: String) {
+        ctx.startActivity(Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:$addr")
+        })
+    }
 
     Surface {
-        Column(Modifier.fillMaxSize().padding(20.dp)) {
-            Text("Contacts", style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.height(12.dp))
-
-            Box(Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    readOnly = true,
-                    value = selected?.let { "#${it.playerId}  ${it.name}" } ?: "",
-                    onValueChange = {},
-                    label = { Text("Select player") },
-                    trailingIcon = { Text(if (showPicker) "▲" else "▼") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .clickable { if (roster.isNotEmpty()) showPicker = true }
-                )
-            }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Contacts",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
 
             Spacer(Modifier.height(12.dp))
-            Text("Loaded: ${roster.size} players")
 
-            loadError?.let {
-                Spacer(Modifier.height(8.dp))
-                Text("Error loading: $it", color = MaterialTheme.colorScheme.error)
-            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search") }
+            )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-            selected?.let { p ->
-                Text("Player: #${p.playerId} ${p.name}", style = MaterialTheme.typography.titleMedium)
-                Text("Phone: ${p.phone ?: "—"}")
-                Text("Email: ${p.email ?: "—"}")
-
-                Spacer(Modifier.height(16.dp))
-
-                val isBye = p.name.equals("BYE", true)
-                val hasPhone = !p.phone.isNullOrBlank()
-                val hasEmail = !p.email.isNullOrBlank()
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-                ) {
-                    Button(
-                        onClick = {
-                            val phone = p.phone ?: return@Button
-                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
-                        },
-                        enabled = !isBye && hasPhone
-                    ) { Text("Call") }
-
-                    OutlinedButton(
-                        onClick = {
-                            val phone = p.phone ?: return@OutlinedButton
-                            context.startActivity(Intent(Intent.ACTION_VIEW, "sms:$phone".toUri()))
-                        },
-                        enabled = !isBye && hasPhone
-                    ) { Text("Text") }
-
-                    OutlinedButton(
-                        onClick = {
-                            val email = p.email ?: return@OutlinedButton
-                            context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri()))
-                        },
-                        enabled = !isBye && hasEmail
-                    ) { Text("Email") }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                filtered.forEach { p ->
+                    ContactCard(
+                        p = p,
+                        onCall = { p.phone?.let { dial(it) } },
+                        onText = { p.phone?.let { sms(it) } },
+                        onEmail = { p.email?.let { email(it) } }
+                    )
                 }
 
-                if (isBye) {
-                    Spacer(Modifier.height(8.dp))
-                    Text("BYE (no contact actions)")
+                if (players.isEmpty()) {
+                    Text("No players yet. Import players.csv in Admin > Players > Import.")
                 }
             }
         }
     }
+}
 
-    if (showPicker) {
-        AlertDialog(
-            onDismissRequest = { showPicker = false },
-            title = { Text("Select a player") },
-            text = {
-                LazyColumn(Modifier.fillMaxWidth().height(550.dp)) {
-                    items(roster) { p ->
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedIndex = roster.indexOf(p)
-                                    showPicker = false
-                                }
-                                .padding(vertical = 10.dp)
-                        ) {
-                            Text("#${p.playerId}  ${p.name}", style = MaterialTheme.typography.titleMedium)
-                            Text("Phone: ${p.phone ?: "—"}   •   Email: ${p.email ?: "—"}")
-                        }
-                        Divider()
-                    }
-                }
-            },
-            confirmButton = {}
-        )
+@Composable
+private fun ContactCard(
+    p: PlayerRow,
+    onCall: () -> Unit,
+    onText: () -> Unit,
+    onEmail: () -> Unit
+) {
+    Surface(tonalElevation = 1.dp) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = if (p.isBye) "${p.name} (BYE)" else p.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onCall,
+                    enabled = !p.phone.isNullOrBlank() && !p.isBye,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Call") }
+
+                OutlinedButton(
+                    onClick = onText,
+                    enabled = !p.phone.isNullOrBlank() && !p.isBye,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Text") }
+
+                Button(
+                    onClick = onEmail,
+                    enabled = !p.email.isNullOrBlank() && !p.isBye,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Email") }
+            }
+        }
     }
 }
